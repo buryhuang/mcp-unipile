@@ -29,6 +29,58 @@ class UnipileWrapper:
         
         self.client = UnipileClient(dsn=dsn, api_key=api_key)
 
+    def _extract_person_info(self, original_data: dict) -> dict:
+        """Extract core person information from message data"""
+        try:
+            person_info = {}
+            if "conversation" in original_data:
+                participants = original_data["conversation"].get("conversationParticipants", [])
+                for participant in participants:
+                    if "participantType" in participant and "member" in participant["participantType"]:
+                        member = participant["participantType"]["member"]
+                        if member.get("firstName") and isinstance(member["firstName"], dict):
+                            first_name = member["firstName"].get("text", "")
+                            last_name = member["lastName"].get("text", "") if member.get("lastName") else ""
+                            headline = member.get("headline", {}).get("text", "") if member.get("headline") else ""
+                            pronoun = member.get("pronoun", {}).get("standardizedPronoun", "") if member.get("pronoun") else ""
+                            
+                            person_info[participant["backendUrn"]] = {
+                                "name": f"{first_name} {last_name}".strip(),
+                                "headline": headline,
+                                "pronoun": pronoun
+                            }
+            return person_info
+        except Exception as e:
+            logger.error(f"Error extracting person info: {str(e)}")
+            return {}
+
+    def _extract_core_message(self, message: dict) -> dict:
+        """Extract core message content and metadata"""
+        try:
+            # Extract basic message info
+            core_message = {
+                "id": message.get("id", ""),
+                "text": message.get("text", ""),
+                "timestamp": message.get("timestamp", ""),
+                "sender_id": message.get("sender_id", ""),
+                "chat_info": message.get("chat_info", {})
+            }
+
+            # Extract person information if original data exists
+            if "original" in message:
+                try:
+                    original_data = json.loads(message["original"])
+                    person_info = self._extract_person_info(original_data)
+                    if person_info:
+                        core_message["participants"] = person_info
+                except json.JSONDecodeError:
+                    pass
+
+            return core_message
+        except Exception as e:
+            logger.error(f"Error extracting core message: {str(e)}")
+            return message
+
     def get_accounts(self) -> str:
         """Get all connected accounts"""
         try:
@@ -40,10 +92,13 @@ class UnipileWrapper:
             logger.error(f"Error getting accounts: {str(e)}")
             return json.dumps({"error": str(e)})
 
-    def get_chats(self) -> str:
-        """Get all available chats"""
+    def get_chats(self, account_id: str, limit: int = 10) -> str:
+        """Get all available chats for a specific account"""
         try:
-            chats = self.client.get_chats()
+            # The account_id may be looks like this: abcdefg_MESSAGING
+            # remove the _MESSAGING part
+            account_id = account_id.replace("_MESSAGING", "")
+            chats = self.client.get_chats(account_id=account_id, limit=limit)
             return json.dumps(chats)
         except Exception as e:
             logger.error(f"Error getting chats: {str(e)}")
@@ -53,16 +108,21 @@ class UnipileWrapper:
         """Get all messages from a chat"""
         try:
             messages = self.client.get_messages_as_list(chat_id, batch_size)
-            return json.dumps(messages)
+            # Transform each message to extract core content
+            core_messages = [self._extract_core_message(msg) for msg in messages]
+            return json.dumps(core_messages)
         except Exception as e:
             logger.error(f"Error getting chat messages: {str(e)}")
             return json.dumps({"error": str(e)})
 
-    def get_all_messages(self) -> str:
-        """Get messages from all available chats"""
+    def get_all_messages(self, account_id: str, limit: int = 10) -> str:
+        """Get messages from all available chats for a specific account"""
         try:
-            # First get all chats
-            chats = self.client.get_chats()
+            # First get all chats for this account
+            chats = json.loads(self.get_chats(account_id, limit))
+            if isinstance(chats, dict) and "error" in chats:
+                return json.dumps(chats)
+                
             all_messages = []
             
             # Then get messages from each chat
@@ -70,15 +130,9 @@ class UnipileWrapper:
                 chat_id = chat.get('id')
                 if chat_id:
                     messages = self.client.get_messages_as_list(chat_id)
-                    # Add chat info to each message for context
-                    for message in messages:
-                        message['chat_info'] = {
-                            'id': chat.get('id'),
-                            'name': chat.get('name'),
-                            'account_type': chat.get('account_type'),
-                            'account_id': chat.get('account_id')
-                        }
-                    all_messages.extend(messages)
+                    # Transform each message to extract core content
+                    core_messages = [self._extract_core_message(msg) for msg in messages]
+                    all_messages.extend(core_messages)
             
             return json.dumps(all_messages, default=str)
         except Exception as e:
@@ -168,15 +222,20 @@ async def main(dsn: Optional[str] = None, api_key: Optional[str] = None):
                     raise ValueError("Missing arguments for get_recent_messages")
                 
                 account_id = arguments["account_id"]
-                batch_size = arguments.get("batch_size", 20)
+                batch_size = arguments.get("batch_size", 10)
                 
                 # Get all chats first
-                chats = json.loads(unipile.get_chats())
-                # Filter chats for the specific account
-                account_chats = [chat for chat in chats if chat.get('account_id') == account_id]
-                
+                chats = json.loads(unipile.get_chats(account_id=account_id, limit=batch_size))
+                if isinstance(chats, dict) and "error" in chats:
+                    return [types.TextContent(
+                        type="text",
+                        text=json.dumps(chats),
+                        mimeType="application/json",
+                        uri=AnyUrl(f"unipile://error")
+                    )]
+                    
                 all_messages = []
-                for chat in account_chats:
+                for chat in chats:
                     chat_id = chat.get('id')
                     if chat_id:
                         messages = json.loads(unipile.get_chat_messages(chat_id, batch_size))

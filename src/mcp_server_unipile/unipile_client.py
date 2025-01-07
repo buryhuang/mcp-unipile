@@ -39,9 +39,13 @@ class UnipileClient:
             return data.get("items", [])
         return []
 
-    def get_chats(self, limit: int = 10) -> List[Dict]:
+    def get_chats(self, account_id: str, limit: int = 10) -> List[Dict]:
         """
-        Get all available chats
+        Get available chats for a specific account
+        
+        Args:
+            account_id: The ID of the account to get chats from
+            limit: Maximum number of chats to return (default: 10)
         
         Returns:
             List of chat dictionaries from the items array. Each chat contains:
@@ -60,7 +64,7 @@ class UnipileClient:
         Raises:
             requests.exceptions.RequestException: If the API request fails
         """
-        url = f"{self.base_url}/api/v1/chats?limit={limit}"
+        url = f"{self.base_url}/api/v1/chats?account_id={account_id}&limit={limit}"
         response = requests.get(url, headers=self.headers)
         response.raise_for_status()
         data = response.json()
@@ -155,6 +159,3 @@ if __name__ == "__main__":
     for message in client.get_all_messages(chat_id):
         print(f"Message: {message}")
         
-    # Or get all messages as a list
-    messages = client.get_messages_as_list(chat_id)
-    print(f"Total messages: {len(messages)}") 
