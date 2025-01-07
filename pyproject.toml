@@ -1,0 +1,17 @@
+[project]
+name = "mcp-server-unipile"
+version = "0.1.0"
+description = "A simple unipile MCP server"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["mcp>=1.0.0", "python-dotenv>=1.0.0", "requests>=2.31.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = ["pyright>=1.1.389"]
+
+[project.scripts]
+mcp-server-unipile = "mcp_server_unipile:main" 
