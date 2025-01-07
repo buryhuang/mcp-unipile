@@ -7,6 +7,8 @@ import mcp.types as types
 from mcp.server import NotificationOptions, Server
 import mcp.server.stdio
 from pydantic import AnyUrl
+import re
+from markitdown import MarkItDown
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -81,12 +83,66 @@ class UnipileWrapper:
             logger.error(f"Error extracting core message: {str(e)}")
             return message
 
+    def _extract_core_email(self, email: dict) -> dict:
+        """Extract core email content and metadata"""
+        try:
+            # Extract basic email info
+            core_email = {
+                "id": email.get("id", ""),
+                "subject": email.get("subject", ""),
+                "date": email.get("date", ""),
+                "role": email.get("role", ""),
+                "folders": email.get("folders", []),
+                "has_attachments": email.get("has_attachments", False)
+            }
+
+            # Convert body_plain to markdown if available
+            if email.get("kind") in ["1_meta", "2_full"]:
+                body_plain = email.get("body_plain", "")
+                if body_plain:
+                    # Convert text to markdown using MarkItDown
+                    md = MarkItDown()
+                    result = md.convert(body_plain)
+                    core_email["body_markdown"] = result.text_content
+
+            # Add sender and recipients
+            if "from_attendee" in email:
+                core_email["from"] = email["from_attendee"].get("display_name", "")
+            
+            core_email["to"] = [att.get("display_name", "") for att in email.get("to_attendees", [])]
+            core_email["cc"] = [att.get("display_name", "") for att in email.get("cc_attendees", [])]
+
+            # Add attachment info
+            if email.get("attachments"):
+                core_email["attachments"] = [{
+                    "name": att.get("name", ""),
+                    "size": att.get("size", 0),
+                    "type": att.get("mime", "")
+                } for att in email["attachments"]]
+
+            return core_email
+        except Exception as e:
+            logger.error(f"Error extracting core email: {str(e)}")
+            return email
+
+    def get_emails(self, account_id: str, limit: int = 10) -> str:
+        """Get emails for a specific account"""
+        try:
+            # The account_id may be looks like this: abcdefg_MAILS
+            # remove the _MAILS part from right side
+            account_id = re.sub(r"_[A-Z]+$", "", account_id)
+            emails = self.client.get_emails(account_id=account_id, limit=limit)
+            # Transform each email to extract core content
+            core_emails = [self._extract_core_email(email) for email in emails]
+            return json.dumps(core_emails)
+        except Exception as e:
+            logger.error(f"Error getting emails: {str(e)}")
+            return json.dumps({"error": str(e)})
+
     def get_accounts(self) -> str:
         """Get all connected accounts"""
         try:
             accounts = self.client.get_accounts()
-            logger.info(f"Accounts: {accounts}")
-            logger.info(f"Accounts Json: {json.dumps(accounts, default=str)}")
             return json.dumps(accounts, default=str)
         except Exception as e:
             logger.error(f"Error getting accounts: {str(e)}")
@@ -95,9 +151,9 @@ class UnipileWrapper:
     def get_chats(self, account_id: str, limit: int = 10) -> str:
         """Get all available chats for a specific account"""
         try:
-            # The account_id may be looks like this: abcdefg_MESSAGING
-            # remove the _MESSAGING part
-            account_id = account_id.replace("_MESSAGING", "")
+            # The account_id may be looks like this: abcdefg_MESSAGING, abcdefg_MAILS, abcdefg_WHATSAPP
+            # remove the _MESSAGING part from right side
+            account_id = re.sub(r"_[A-Z]+$", "", account_id)
             chats = self.client.get_chats(account_id=account_id, limit=limit)
             return json.dumps(chats)
         except Exception as e:
@@ -200,6 +256,18 @@ async def main(dsn: Optional[str] = None, api_key: Optional[str] = None):
                     "required": ["account_id"]
                 },
             ),
+            types.Tool(
+                name="unipile_get_emails",
+                description="Get recent emails from a specific account. Returns email details including subject, body, sender, recipients, attachments, and metadata.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "account_id": {"type": "string", "description": "The ID of the account to get emails from"},
+                        "limit": {"type": "integer", "description": "Maximum number of emails to return (default: 10)"}
+                    },
+                    "required": ["account_id"]
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -254,6 +322,20 @@ async def main(dsn: Optional[str] = None, api_key: Optional[str] = None):
                     text=json.dumps(all_messages, default=str),
                     mimeType="application/json",
                     uri=AnyUrl(f"unipile://messages/{account_id}")
+                )]
+            elif name == "unipile_get_emails":
+                if not arguments:
+                    raise ValueError("Missing arguments for get_emails")
+                
+                account_id = arguments["account_id"]
+                limit = arguments.get("limit", 10)
+                
+                results = unipile.get_emails(account_id=account_id, limit=limit)
+                return [types.TextContent(
+                    type="text",
+                    text=results,
+                    mimeType="application/json",
+                    uri=AnyUrl(f"unipile://emails/{account_id}")
                 )]
             else:
                 raise ValueError(f"Unknown tool: {name}")

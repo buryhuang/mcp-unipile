@@ -146,6 +146,47 @@ class UnipileClient:
         """
         return list(self.get_all_messages(chat_id, batch_size))
 
+    def get_emails(self, account_id: str, limit: int = 10) -> List[Dict]:
+        """
+        Get emails for a specific account
+        
+        Args:
+            account_id: The ID of the account to get emails from
+            limit: Maximum number of emails to return (default: 10)
+            
+        Returns:
+            List of email dictionaries from the items array. Each email contains:
+            - id: Email ID
+            - account_id: The associated account ID
+            - type: Email type (MAIL)
+            - date: Email timestamp
+            - role: Email role (inbox, sent, etc.)
+            - folders: List of folder names
+            - subject: Email subject
+            - body: Email body (HTML)
+            - body_plain: Email body (plain text)
+            - from_attendee: Sender information
+            - to_attendees: Recipients information
+            - attachments: List of attachments
+            And more email metadata
+            
+        Raises:
+            requests.exceptions.RequestException: If the API request fails
+        """
+        url = f"{self.base_url}/api/v1/emails"
+        params = {
+            'account_id': account_id,
+            'limit': limit
+        }
+        response = requests.get(url, headers=self.headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+        
+        # The emails are in the items array
+        if data.get("object") == "EmailList":
+            return data.get("items", [])
+        return []
+
 # Example usage:
 if __name__ == "__main__":
     # Initialize client
