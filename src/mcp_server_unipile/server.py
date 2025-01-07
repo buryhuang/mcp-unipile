@@ -103,13 +103,13 @@ async def main(dsn: Optional[str] = None, api_key: Optional[str] = None):
             types.Resource(
                 uri=AnyUrl("unipile://chats"),
                 name="Unipile Chats",
-                description="List of available chats across all connected accounts, including details like account type, chat name, unread count, and platform-specific features",
+                description="List of available chats across all connected accounts, including details like account type, chat name, unread count, and platform-specific features. Supported account types: Mobile, Mail, Google, ICloud, Outlook, Google Calendar, Whatsapp, Linkedin, Slack, Twitter, Exchange, Telegram, Instagram, Messenger.",
                 mimeType="application/json",
             ),
             types.Resource(
                 uri=AnyUrl("unipile://messages"),
                 name="Unipile Messages",
-                description="Messages from connected messaging platforms, including text content, attachments (images, videos, audio, files), reactions, quoted messages, and message metadata",
+                description="Messages from connected messaging platforms, including text content, attachments (images, videos, audio, files), reactions, quoted messages, and message metadata. Supported account types: Mobile, Mail, Google, ICloud, Outlook, Google Calendar, Whatsapp, Linkedin, Slack, Twitter, Exchange, Telegram, Instagram, Messenger.",
                 mimeType="application/json",
             )
         ]

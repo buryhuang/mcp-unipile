@@ -33,7 +33,6 @@ class UnipileClient:
         response = requests.get(url, headers=self.headers)
         response.raise_for_status()
         data = response.json()
-        logger.info(f"Raw accounts response: {data}")
         
         # The accounts are in the items array
         if data.get("object") == "AccountList":
@@ -65,7 +64,6 @@ class UnipileClient:
         response = requests.get(url, headers=self.headers)
         response.raise_for_status()
         data = response.json()
-        logger.info(f"Raw chats response: {data}")
         
         # The chats are in the items array
         if data.get("object") == "ChatList":
@@ -111,7 +109,6 @@ class UnipileClient:
             response.raise_for_status()
             
             data = response.json()
-            logger.info(f"Raw messages response: {data}")
             
             # The messages are in the items array
             if data.get("object") == "MessageList":

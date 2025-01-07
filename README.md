@@ -2,9 +2,25 @@
 
 ## Overview
 
-A Model Context Protocol (MCP) server implementation that provides integration with Unipile messaging platform. This server enables AI models to interact with messages from various messaging platforms (LinkedIn, WhatsApp, Instagram, Messenger, Telegram) through a standardized interface.
+A Model Context Protocol (MCP) server implementation that provides integration with the Unipile messaging platform. This server enables AI models to interact with messages from various messaging platforms (LinkedIn, WhatsApp, Instagram, Messenger, Telegram) through a standardized interface.
 
 For more information about the Model Context Protocol and how it works, see [Anthropic's MCP documentation](https://www.anthropic.com/news/model-context-protocol).
+
+## Unipile Subscription
+
+To use the Unipile services, a subscription is required. I am not paid by Unipile to do this; I am simply a user who loves using Unipile because it works effectively. For more details on the subscription and features, visit the [Unipile Messaging API page](https://www.unipile.com/communication-api/messaging-api/).
+
+## Communication Capabilities
+
+With Unipile, you can communicate seamlessly across a wide range of social platforms. This includes popular messaging services such as:
+
+- **LinkedIn**: Engage with professional contacts, send messages, and manage your LinkedIn interactions directly through the Unipile interface.
+- **WhatsApp**: Send and receive messages, manage chats, and stay connected with your contacts.
+- **Instagram**: Interact with followers, respond to direct messages, and manage your Instagram communications.
+- **Messenger**: Communicate with friends and family through Facebook Messenger.
+- **Telegram**: Access your Telegram chats and messages effortlessly.
+
+Unipile's integration with these platforms allows for a unified communication experience, making it easier to manage interactions across different services. This is particularly beneficial for users who rely on LinkedIn for professional networking, as it enables them to leverage AI capabilities, such as Claude, to enhance their communication strategies.
 
 ## Components
 
