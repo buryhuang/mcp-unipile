@@ -97,21 +97,9 @@ async def main(dsn: Optional[str] = None, api_key: Optional[str] = None):
             types.Resource(
                 uri=AnyUrl("unipile://accounts"),
                 name="Unipile Accounts",
-                description="List of connected messaging accounts including MOBILE, MAIL, WHATSAPP, LINKEDIN, SLACK, TWITTER, TELEGRAM, INSTAGRAM, MESSENGER, and more",
+                description="List of connected messaging accounts from supported platforms: Mobile, Mail, WhatsApp, LinkedIn, Slack, Twitter, Telegram, Instagram, Messenger",
                 mimeType="application/json",
             ),
-            types.Resource(
-                uri=AnyUrl("unipile://chats"),
-                name="Unipile Chats",
-                description="List of available chats across all connected accounts, including details like account type, chat name, unread count, and platform-specific features. Supported account types: Mobile, Mail, Google, ICloud, Outlook, Google Calendar, Whatsapp, Linkedin, Slack, Twitter, Exchange, Telegram, Instagram, Messenger.",
-                mimeType="application/json",
-            ),
-            types.Resource(
-                uri=AnyUrl("unipile://messages"),
-                name="Unipile Messages",
-                description="Messages from connected messaging platforms, including text content, attachments (images, videos, audio, files), reactions, quoted messages, and message metadata. Supported account types: Mobile, Mail, Google, ICloud, Outlook, Google Calendar, Whatsapp, Linkedin, Slack, Twitter, Exchange, Telegram, Instagram, Messenger.",
-                mimeType="application/json",
-            )
         ]
 
     @server.read_resource()
@@ -123,10 +111,6 @@ async def main(dsn: Optional[str] = None, api_key: Optional[str] = None):
         try:
             if path == "accounts":
                 return unipile.get_accounts()
-            elif path == "chats":
-                return unipile.get_chats()
-            elif path == "messages":
-                return unipile.get_all_messages()
             else:
                 raise ValueError(f"Unknown resource path: {path}")
         except Exception as e:
@@ -144,30 +128,22 @@ async def main(dsn: Optional[str] = None, api_key: Optional[str] = None):
         return [
             types.Tool(
                 name="unipile_get_accounts",
-                description="Get all connected messaging accounts. Returns account details including type (MOBILE, MAIL, WHATSAPP, etc.), connection parameters, ID, name, creation date, signatures, groups, and sources.",
+                description="Get all connected messaging accounts from supported platforms: Mobile, Mail, WhatsApp, LinkedIn, Slack, Twitter, Telegram, Instagram, Messenger. Returns account details including connection parameters, ID, name, creation date, signatures, groups, and sources.",
                 inputSchema={
                     "type": "object",
                     "properties": {},
                 },
             ),
             types.Tool(
-                name="unipile_get_chats",
-                description="Get all available chats. Returns chat details including ID, account type (WHATSAPP, LINKEDIN, etc.), name, unread count, archived status, and platform-specific features like folder location for email or organization details for LinkedIn.",
-                inputSchema={
-                    "type": "object",
-                    "properties": {},
-                },
-            ),
-            types.Tool(
-                name="unipile_get_chat_messages",
-                description="Get all messages from a Unipile chat. Returns message details including text content, sender info, timestamps, attachments (images, videos, audio, files), reactions, quoted messages (replies), delivery status, and message metadata.",
+                name="unipile_get_recent_messages",
+                description="Get recent messages from all chats associated with a specific account. Supports messages from: Mobile, Mail, WhatsApp, LinkedIn, Slack, Twitter, Telegram, Instagram, Messenger. Returns message details including text content, sender info, timestamps, attachments, reactions, quoted messages, and metadata.",
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "chat_id": {"type": "string", "description": "The ID of the chat to get messages from"},
-                        "batch_size": {"type": "integer", "description": "Number of messages to fetch per request (default: 100)"}
+                        "account_id": {"type": "string", "description": "The one source ID of of the account to get messages from. It is the id of the source objects in the account's sources array."},
+                        "batch_size": {"type": "integer", "description": "Number of messages to fetch per chat (default: 20)"}
                     },
-                    "required": ["chat_id"]
+                    "required": ["account_id"]
                 },
             ),
         ]
@@ -187,27 +163,38 @@ async def main(dsn: Optional[str] = None, api_key: Optional[str] = None):
                     mimeType="application/json",
                     uri=AnyUrl("unipile://accounts")
                 )]
-            elif name == "unipile_get_chats":
-                results = unipile.get_chats()
-                return [types.TextContent(
-                    type="text",
-                    text=results,
-                    mimeType="application/json",
-                    uri=AnyUrl("unipile://chats")
-                )]
-            elif name == "unipile_get_chat_messages":
+            elif name == "unipile_get_recent_messages":
                 if not arguments:
-                    raise ValueError("Missing arguments for get_chat_messages")
+                    raise ValueError("Missing arguments for get_recent_messages")
                 
-                chat_id = arguments["chat_id"]
-                batch_size = arguments.get("batch_size", 100)
+                account_id = arguments["account_id"]
+                batch_size = arguments.get("batch_size", 20)
                 
-                results = unipile.get_chat_messages(chat_id, batch_size)
+                # Get all chats first
+                chats = json.loads(unipile.get_chats())
+                # Filter chats for the specific account
+                account_chats = [chat for chat in chats if chat.get('account_id') == account_id]
+                
+                all_messages = []
+                for chat in account_chats:
+                    chat_id = chat.get('id')
+                    if chat_id:
+                        messages = json.loads(unipile.get_chat_messages(chat_id, batch_size))
+                        if isinstance(messages, list):
+                            for message in messages:
+                                message['chat_info'] = {
+                                    'id': chat.get('id'),
+                                    'name': chat.get('name'),
+                                    'account_type': chat.get('account_type'),
+                                    'account_id': chat.get('account_id')
+                                }
+                            all_messages.extend(messages)
+                
                 return [types.TextContent(
                     type="text",
-                    text=results,
+                    text=json.dumps(all_messages, default=str),
                     mimeType="application/json",
-                    uri=AnyUrl(f"unipile://messages/{chat_id}")
+                    uri=AnyUrl(f"unipile://messages/{account_id}")
                 )]
             else:
                 raise ValueError(f"Unknown tool: {name}")
