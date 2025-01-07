@@ -40,7 +40,7 @@ class UnipileClient:
             return data.get("items", [])
         return []
 
-    def get_chats(self) -> List[Dict]:
+    def get_chats(self, limit: int = 10) -> List[Dict]:
         """
         Get all available chats
         
@@ -61,7 +61,7 @@ class UnipileClient:
         Raises:
             requests.exceptions.RequestException: If the API request fails
         """
-        url = f"{self.base_url}/api/v1/chats"
+        url = f"{self.base_url}/api/v1/chats?limit={limit}"
         response = requests.get(url, headers=self.headers)
         response.raise_for_status()
         data = response.json()

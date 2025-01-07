@@ -58,6 +58,33 @@ class UnipileWrapper:
             logger.error(f"Error getting chat messages: {str(e)}")
             return json.dumps({"error": str(e)})
 
+    def get_all_messages(self) -> str:
+        """Get messages from all available chats"""
+        try:
+            # First get all chats
+            chats = self.client.get_chats()
+            all_messages = []
+            
+            # Then get messages from each chat
+            for chat in chats:
+                chat_id = chat.get('id')
+                if chat_id:
+                    messages = self.client.get_messages_as_list(chat_id)
+                    # Add chat info to each message for context
+                    for message in messages:
+                        message['chat_info'] = {
+                            'id': chat.get('id'),
+                            'name': chat.get('name'),
+                            'account_type': chat.get('account_type'),
+                            'account_id': chat.get('account_id')
+                        }
+                    all_messages.extend(messages)
+            
+            return json.dumps(all_messages, default=str)
+        except Exception as e:
+            logger.error(f"Error getting all messages: {str(e)}")
+            return json.dumps({"error": str(e)})
+
 async def main(dsn: Optional[str] = None, api_key: Optional[str] = None):
     """Run the Unipile MCP server."""
     logger.info("Server starting")
@@ -99,8 +126,7 @@ async def main(dsn: Optional[str] = None, api_key: Optional[str] = None):
             elif path == "chats":
                 return unipile.get_chats()
             elif path == "messages":
-                # This is just a placeholder - we need chat_id to get actual messages
-                pass
+                return unipile.get_all_messages()
             else:
                 raise ValueError(f"Unknown resource path: {path}")
         except Exception as e:
