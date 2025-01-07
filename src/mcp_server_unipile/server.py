@@ -8,7 +8,7 @@ from mcp.server import NotificationOptions, Server
 import mcp.server.stdio
 from pydantic import AnyUrl
 import re
-from markitdown import MarkItDown
+from markdownify import markdownify
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -100,10 +100,13 @@ class UnipileWrapper:
             if email.get("kind") in ["1_meta", "2_full"]:
                 body_plain = email.get("body_plain", "")
                 if body_plain:
-                    # Convert text to markdown using MarkItDown
-                    md = MarkItDown()
-                    result = md.convert(body_plain)
-                    core_email["body_markdown"] = result.text_content
+                    # Convert text to markdown using markdownify and remove URLs
+                    markdown_text = markdownify(body_plain)
+                    # Remove URLs using regex - matches http/https/ftp URLs
+                    markdown_text = re.sub(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', markdown_text)
+                    # Remove any leftover empty brackets
+                    markdown_text = re.sub(r'\[\s*\]', '', markdown_text)
+                    core_email["body_markdown"] = markdown_text
 
             # Add sender and recipients
             if "from_attendee" in email:
