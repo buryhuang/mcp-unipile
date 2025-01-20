@@ -1,4 +1,5 @@
 # Unipile MCP Server
+[![smithery badge](https://smithery.ai/badge/mcp-unipile)](https://smithery.ai/server/mcp-unipile)
 
 MCP server for using Unipile to access messages across multiple messaging platforms.
 
@@ -58,6 +59,14 @@ You'll need a Unipile DSN and API key. You can obtain these from your Unipile da
 - `UNIPILE_API_KEY`: Your Unipile API key
 
 Note: Keep your API key secure and never commit it to version control.
+
+### Installing via Smithery
+
+To install mcp-unipile for Claude Desktop automatically via [Smithery](https://smithery.ai/server/mcp-unipile):
+
+```bash
+npx -y @smithery/cli install mcp-unipile --client claude
+```
 
 ### Docker Installation
 

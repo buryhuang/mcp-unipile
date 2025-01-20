@@ -1,0 +1,22 @@
+# Smithery configuration file: https://smithery.ai/docs/deployments
+
+build: {}
+startCommand:
+  type: stdio
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - unipileDsn
+      - unipileApiKey
+    properties:
+      unipileDsn:
+        type: string
+        description: Your Unipile DSN, e.g., api8.unipile.com:13851
+      unipileApiKey:
+        type: string
+        description: Your Unipile API key
+  commandFunction:
+    # A function that produces the CLI command to start the MCP on stdio.
+    |-
+    (config) => ({command: 'docker', args: ['run', '--rm', '-e', `UNIPILE_DSN=${config.unipileDsn}`, '-e', `UNIPILE_API_KEY=${config.unipileApiKey}`, 'buryhuang/mcp-unipile:latest']})
